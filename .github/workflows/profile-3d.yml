@@ -1,0 +1,50 @@
+name: GitHub-Profile-3D-Contrib
+
+on:
+  schedule:
+    # 19:07 UTC = 03:07 Asia/Shanghai the next day.
+    - cron: '7 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: profile-3d-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    name: Generate and commit 3D contribution graphs
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Generate contribution graphs
+        uses: yoshi389111/github-profile-3d-contrib@7d95e7d4cdc028dd1e1cbd957d65f35efb12ae39 # v0.9.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USERNAME: Ronaldskp
+
+      - name: Verify output and commit changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -s profile-3d-contrib/profile-night-rainbow.svg ]]; then
+            echo "::error::Expected non-empty profile-3d-contrib/profile-night-rainbow.svg after generation."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- profile-3d-contrib/*.svg
+          if git diff --cached --quiet; then
+            echo "Contribution graphs are unchanged; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: update 3D contribution graphs"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
